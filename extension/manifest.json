@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "ArenaLink",
+  "description": "Send Arena.ai file plans to your desktop for approval.",
+  "version": "0.1.0",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ArenaLink"
+  }
+}

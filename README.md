@@ -1,94 +1,103 @@
 # ArenaLink
 
-> Connect Arena.ai to your PC. Turn a conversation into files and folders.
+> Bring Arena.ai project files onto your PC, with local review before every operation.
 
-![Scope: Local file management](https://img.shields.io/badge/scope-local_file_management-2563eb?style=flat-square)
-![Integration: Arena.ai](https://img.shields.io/badge/integration-Arena.ai-111827?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.1.0-7650c9?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square)
 
-ArenaLink is a local companion designed to connect Arena.ai to your PC. Its goal is to let you create folders, save generated files, and organize a project directly from a conversation.
+ArenaLink pairs a desktop app with a browser extension. Ask Arena.ai for an action plan, select the JSON response, and send it to your desktop. Review the full plan before approving it. Copy the results back into the conversation when you want the model to continue.
 
-If you ask for a project structure, you should get that structure on disk. If you ask for a file, it should end up in the right folder. ArenaLink is built around that workflow.
+**This prototype is a manual bridge, not a native Arena.ai tool integration.** It does not use an Arena API or give models autonomous computer control. No Arena.ai affiliation is implied.
 
-[Overview](#overview) · [Project scope](#project-scope) · [Example](#example) · [Roadmap](#roadmap) · [Contributing](#contributing)
+## Features
 
----
-
-## Overview
-
-Working with AI often means moving content between a browser and your computer: copying code, creating directories, naming files, and putting everything in place.
-
-ArenaLink aims to handle that step through a local connection between Arena.ai and a project folder on your PC. The focus is practical file management, with clear feedback about what was created or changed.
-
-## Project scope
-
-The intended capabilities are:
-
-| Action | Purpose |
+| Operation | Behavior |
 | --- | --- |
-| Create folders | Build a directory structure from a request. |
-| Create files | Save generated code, configuration, and text to disk. |
-| Update files | Apply requested changes to an existing project. |
-| Organize a workspace | Put files in the appropriate project directories. |
-| Report results | Show completed operations and explain failures. |
+| `mkdir` | Create folders, including parent directories |
+| `write` | Save UTF-8 files; existing files require `overwrite: true` |
+| `read` | Read a UTF-8 file, up to 500 KB |
+| `list` | List a folder, up to 500 entries |
 
-These are target capabilities. Installation steps and supported environments will be documented as they are verified.
+The app listens on loopback only (`127.0.0.1:47831`). Each launch generates a new pairing token. All requests, including reads, require desktop approval. Paths must stay inside the selected workspace. Detected symlinks and junctions are rejected. Terminal commands, deletion, and general desktop control are not included.
 
-## Intended workflow
+## Start on Windows
 
-1. Start the local companion on your PC.
-2. Select the project folder you want to work in.
-3. Connect your Arena.ai session.
-4. Describe the files or folders you want to create.
-5. Review the changes in your local workspace.
+1. Install **Python 3.11 or newer** from [python.org](https://www.python.org/downloads/). Include Tcl/Tk and the Python launcher.
+2. Download this repository using **Code → Download ZIP**, then extract it.
+3. Double-click **Start-ArenaLink.bat**.
+4. Click **Choose workspace** and select the project folder to work in.
+5. Click **Copy pairing token**.
 
-## Example
+No Python packages are required to run the application. You can also launch it with:
 
-A request such as:
-
-> Create a folder called `portfolio` with an HTML page, a stylesheet, a JavaScript file, and an images folder.
-
-Would produce:
-
-```text
-portfolio/
-├── index.html
-├── styles.css
-├── script.js
-└── images/
+```sh
+python app.py
 ```
 
-The files belong in your project directory, ready to open in your editor and continue working on.
+## Load the extension
+
+1. Open `chrome://extensions`, `brave://extensions`, or `edge://extensions`.
+2. Enable **Developer mode** and choose **Load unpacked**.
+3. Select this repository's **extension** folder.
+4. Pin ArenaLink, open its popup, and paste the pairing token.
+
+The extension targets Chromium browsers. Windows packaging and live browser pairing still need verification on a Windows machine.
+
+## Use with Arena.ai
+
+1. Paste [ARENA_PROMPT.txt](ARENA_PROMPT.txt) into an Arena.ai conversation.
+2. Tell the model what you want to create.
+3. Select the complete JSON plan in its response.
+4. Open ArenaLink and click **Use selected Arena.ai text**, or paste the JSON directly into the popup.
+5. Click **Send for approval** and keep the popup open.
+6. Review paths and content in the desktop app. Click **Approve and run** or **Reject**.
+7. Click **Copy result** and paste it into Arena.ai for the next step.
+
+Example:
+
+```json
+{
+  "actions": [
+    {"op": "mkdir", "path": "portfolio"},
+    {
+      "op": "write",
+      "path": "portfolio/index.html",
+      "content": "<!doctype html><html><body><h1>Hello from ArenaLink</h1></body></html>"
+    }
+  ]
+}
+```
 
 <details>
-<summary><strong>More example requests</strong></summary>
+<summary><strong>Approval behavior and limits</strong></summary>
 
-- “Create a `src/components` folder and add a navigation component.”
-- “Save this configuration as `settings.json` in the project root.”
-- “Create a `docs` folder and write a getting-started guide.”
-- “Update the stylesheet with the changes we just discussed.”
+- Requests expire after two minutes. Only one request can be pending at a time.
+- Plans allow up to 30 actions; requests are limited to 1 MB.
+- The desktop preview shows the received plan. Editing the preview does not change the actions.
+- A batch stops on its first failure. Earlier successful actions remain applied; batches are not transactions.
+- If the popup closes or loses connection, inspect desktop activity before retrying. Approved operations may already have completed.
+- Tokens use browser session storage. Restarting the desktop app requires pairing again.
+- Use a project folder you control. This prototype is not a security boundary against local processes changing that folder while actions run.
 
 </details>
 
-## Design priorities
+## Build a Windows executable
 
-- **A defined workspace.** File access should stay within the selected project folder.
-- **Visible changes.** Users should be able to see which paths an operation affects.
-- **Careful updates.** Existing files should be handled deliberately, with confirmation for destructive changes.
-- **Useful errors.** Failed operations should identify the affected path and the reason.
-- **A simple connection.** Connecting a session should require as little manual setup as possible.
+With Python installed on Windows, double-click **Build-Windows.bat**. It installs PyInstaller from PyPI and builds `dist/ArenaLink.exe`. The executable is unsigned. A Windows binary is not included and has not been built or tested here.
+
+## Development
+
+```sh
+python -m unittest discover -s tests -v
+```
+
+Tests cover file operations, workspace confinement, overwrites, batch failures, authentication, and HTTP approval. The desktop UI uses Tkinter; Linux may require the distribution's `python3-tk` package.
 
 ## Roadmap
 
-- [ ] Establish the connection between Arena.ai and the local companion.
-- [ ] Implement folder and file creation.
-- [ ] Add existing-file updates and overwrite handling.
-- [ ] Add operation history and readable error reporting.
-- [ ] Document installation, configuration, and verified compatibility.
-
-## Contributing
-
-Bug reports, implementation ideas, and pull requests are welcome.
-
-For bug reports, include your operating system, the steps to reproduce the issue, and the expected result. Remove credentials and private file contents from any logs you share.
-
-For larger changes, open an issue first to discuss the approach.
+- [x] Local desktop companion and pairing token
+- [x] Workspace file operations with approval
+- [x] Extension for selected action plans and results
+- [ ] Verify Windows UI, executable packaging, and live browser pairing
+- [ ] Add file diffs and backups before overwrites
+- [ ] Investigate supported, automatic Arena.ai tool integration
